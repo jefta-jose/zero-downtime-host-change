@@ -1,0 +1,30 @@
+# The load generator. Runs on floci's network so it can (a) call the ECS API by
+# the service name `floci` and (b) reach the spawned task containers by IP.
+#
+#   docker compose -f docker-compose.client.yaml up --build
+#
+# Leave it running in its own terminal while you perform the switch in another.
+name: before-pgb-client
+
+services:
+  loadgen:
+    build: .
+    container_name: before-pgb-loadgen
+    environment:
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      CLUSTER: before-pgb-cluster
+      SERVICES: "before-pgb-js before-pgb-dotnet"
+      APP_PORT: "8080"
+      INTERVAL: "0.5"
+      PROBE_PATH: /db-info
+    networks:
+      default:
+        aliases: [before-pgb-loadgen]
+
+networks:
+  default:
+    name: floci-docker-network
+    external: true

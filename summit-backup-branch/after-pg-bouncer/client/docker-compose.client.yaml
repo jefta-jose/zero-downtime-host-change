@@ -1,0 +1,32 @@
+# The load generator — reuses the SAME loadgen as the "before" demo (the app and
+# the way you probe it don't change), just pointed at the after-pgb services.
+#
+#   docker compose -f docker-compose.client.yaml up --build
+#
+# Leave it running while you switch. Unlike the "before" demo, you should see NO
+# NO-RUNNING-TASK gap during a switch — the branch flips A<->B with the apps
+# staying up, because the switch happens at pgbouncer, not by redeploying.
+name: after-pgb-client
+
+services:
+  loadgen:
+    build: ../../before-pg-bouncer/client   # identical loadgen script + image
+    container_name: after-pgb-loadgen
+    environment:
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      CLUSTER: after-pgb-cluster
+      SERVICES: "after-pgb-js after-pgb-dotnet"
+      APP_PORT: "8080"
+      INTERVAL: "0.5"
+      PROBE_PATH: /db-info
+    networks:
+      default:
+        aliases: [after-pgb-loadgen]
+
+networks:
+  default:
+    name: floci-docker-network
+    external: true

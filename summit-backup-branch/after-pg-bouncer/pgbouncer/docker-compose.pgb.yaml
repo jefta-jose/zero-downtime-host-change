@@ -1,0 +1,44 @@
+# PgBouncer — the stable endpoint the apps point at forever, and the layer that
+# reads the current branch FROM Secrets Manager.
+#
+# Container name `pgbouncer` is the stable DNS name on floci-docker-network: the
+# app ECS tasks connect to pgbouncer:6432 and never learn a branch hostname. This
+# is the local stand-in for the research's internal NLB DNS name (option-b §2).
+#
+# On boot the entrypoint reads the `after-pgb-upstream` secret from floci's
+# Secrets Manager (reachable in-network at http://floci:4566) and renders the
+# upstream. switch.sh updates that secret and triggers a re-read + RELOAD.
+#
+# Port 6432 is also published to the host so you can psql its admin console for
+# the watch view (watch-pool.sh) and so switch.sh can send RELOAD.
+#
+# Start with:  docker compose -f docker-compose.pgb.yaml up -d --build
+#   (start the branch DBs first, and create the SM secret first — see the doc)
+name: after-pgb-pgbouncer
+
+services:
+  pgbouncer:
+    build: .
+    image: after-pgb-pgbouncer:latest
+    container_name: pgbouncer
+    environment:
+      # floci Secrets Manager, in-network endpoint + dummy local creds (NEVER real AWS).
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      UPSTREAM_SECRET_ID: after-pgb-upstream
+    ports:
+      - "6432:6432"           # host access: admin console + watch-pool.sh + switch.sh RELOAD
+    healthcheck:
+      test: ["CMD-SHELL", "pgbouncer --version >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+# Reuse floci's shared network so pgbouncer can reach the branch DBs + floci SM by
+# name, and the spawned ECS tasks can reach pgbouncer by name.
+networks:
+  default:
+    name: floci-docker-network
+    external: true

@@ -1,0 +1,4 @@
+; PgBouncer userlist - copy this file to userlist.txt and fill in real values.
+; Format: "username" "password"   (plaintext, or an md5/SCRAM hash)
+; userlist.txt is gitignored so credentials never get committed.
+"app_user" "CHANGE_ME"

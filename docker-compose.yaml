@@ -1,0 +1,43 @@
+# Pinned to the project the running runtime was created under (its old
+# directory was renamed to floci-docker-terraform). Keeps compose adopting
+# the existing healthy runtime instead of creating a conflicting duplicate.
+name: floci-docker-run
+
+services:
+  floci:
+    image: floci/floci:latest
+    ports:
+      - "4566:4566"
+    volumes:
+    # docker writes volumes in host:container format
+    # the below should be read as take something from the host path and make it available in this path inside the container
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/app/data
+    environment:
+      FLOCI_STORAGE_MODE: hybrid
+      # Pin the network floci attaches spawned ECS task containers to. The floci
+      # container is on both `bridge` and `floci-docker-network`, so without
+      # this the auto-detected network is ambiguous and tasks may not be able to
+      # resolve the branch Postgres containers by name. (Apply with
+      # `docker compose up -d floci`.) See summit-backup-branch/before-pg-bouncer.
+      FLOCI_SERVICES_ECS_DOCKER_NETWORK: floci-docker-network
+
+  floci-ui:
+    image: floci/floci-ui:latest
+    ports:
+      - "4500:4500"
+    environment:
+      # Reach the runtime by service name over the shared compose network.
+      # Using the name (not an IP) survives restarts, which reassign container IPs.
+      FLOCI_ENDPOINT: http://floci:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      PORT: 4500
+    depends_on:
+      - floci
+
+# Name the project's default network explicitly so it matches
+networks:
+  default:
+    name: floci-docker-network

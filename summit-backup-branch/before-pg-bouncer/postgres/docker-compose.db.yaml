@@ -1,0 +1,55 @@
+# Two Postgres containers standing in for two Lakebase branches.
+#
+#   postgres-branch-a  -> "BRANCH-A" (blue)   host port 5433
+#   postgres-branch-b  -> "BRANCH-B" (green)  host port 5434
+#
+# Both join floci's Docker network (floci-docker-network) so the ECS/Fargate
+# tasks floci spawns can reach them by container name (postgres-branch-a /
+# postgres-branch-b) over the network's embedded DNS. The published host ports
+# (5433/5434) are only for you to psql in from the host and watch
+# pg_stat_activity during a switch.
+#
+# Start with:  docker compose -f docker-compose.db.yaml up -d
+name: before-pgb-db
+
+services:
+  postgres-branch-a:
+    image: postgres:16
+    container_name: postgres-branch-a
+    environment:
+      POSTGRES_DB: summit
+      POSTGRES_USER: summit
+      POSTGRES_PASSWORD: summit
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./init-branch-a.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U summit -d summit"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  postgres-branch-b:
+    image: postgres:16
+    container_name: postgres-branch-b
+    environment:
+      POSTGRES_DB: summit
+      POSTGRES_USER: summit
+      POSTGRES_PASSWORD: summit
+    ports:
+      - "5434:5432"
+    volumes:
+      - ./init-branch-b.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U summit -d summit"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+# Attach to floci's existing network instead of creating a new one, so the
+# spawned ECS task containers and these DBs share embedded DNS.
+networks:
+  default:
+    name: floci-docker-network
+    external: true
